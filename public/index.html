@@ -1,0 +1,301 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS2 Web 3D - Team Deathmatch</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #111; color: #fff; }
+        #gameCanvas { display: block; width: 100vw; height: 100vh; }
+
+        /* Login Oynasi */
+        #loginOverlay {
+            position: fixed; inset: 0; background: radial-gradient(circle, rgba(25,30,40,0.92), #090b10);
+            display: flex; align-items: center; justify-content: center; z-index: 100;
+        }
+        .card {
+            background: rgba(20, 24, 33, 0.95); border: 2px solid #e59b27; border-radius: 10px;
+            padding: 28px; width: 380px; box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+        }
+        .card h1 { color: #e59b27; text-align: center; margin-bottom: 15px; font-size: 24px; letter-spacing: 1px; }
+        .card input, .card select {
+            width: 100%; padding: 11px; margin: 8px 0; background: #10141d; border: 1px solid #394256;
+            color: #fff; border-radius: 6px; font-size: 14px;
+        }
+        .btn {
+            width: 100%; padding: 12px; margin-top: 12px; background: #e59b27; border: none;
+            color: #111; font-weight: 800; border-radius: 6px; cursor: pointer; font-size: 15px;
+        }
+        .btn:hover { background: #ffB340; }
+        #loginError { color: #ff5252; font-size: 13px; text-align: center; margin-top: 8px; }
+
+        /* Crosshair & AWP Sniper Scope */
+        #crosshair {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 20px; height: 20px; pointer-events: none; z-index: 10;
+        }
+        #crosshair::before, #crosshair::after {
+            content: ''; position: absolute; background: #00ff66; box-shadow: 0 0 2px #000;
+        }
+        #crosshair::before { top: 9px; left: 0; width: 20px; height: 2px; }
+        #crosshair::after { top: 0; left: 9px; width: 2px; height: 20px; }
+
+        #scopeOverlay {
+            display: none; position: fixed; inset: 0; pointer-events: none; z-index: 9;
+            background: radial-gradient(circle, transparent 28%, #000 30%);
+        }
+        #scopeOverlay::before {
+            content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 1px; background: #000;
+        }
+        #scopeOverlay::after {
+            content: ''; position: absolute; left: 50%; top: 0; width: 1px; height: 100%; background: #000;
+        }
+
+        /* Yuqori Panel: Raund Vaqti va Jamoalar Hisobi */
+        #topBar {
+            position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+            display: flex; align-items: center; gap: 16px; background: rgba(12,15,20,0.85);
+            padding: 8px 22px; border-radius: 8px; border: 1px solid #333; z-index: 10;
+        }
+        .score-t { color: #f2a93b; font-weight: 800; font-size: 20px; }
+        .score-ct { color: #5d9cec; font-weight: 800; font-size: 20px; }
+        #roundTimer { font-size: 22px; font-weight: 900; color: #fff; min-width: 65px; text-align: center; }
+
+        /* Global E'lon (Announcement) */
+        #announcementBanner {
+            display: none; position: fixed; top: 75px; left: 50%; transform: translateX(-50%);
+            background: rgba(229, 155, 39, 0.95); color: #000; font-weight: 800;
+            padding: 10px 26px; border-radius: 6px; z-index: 25; box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+        }
+
+        /* Killfeed */
+        #killFeed {
+            position: fixed; top: 15px; right: 15px; display: flex; flex-direction: column;
+            gap: 6px; z-index: 10; pointer-events: none;
+        }
+        .kill-item {
+            background: rgba(10,12,16,0.8); padding: 6px 12px; border-radius: 4px;
+            font-size: 13px; border-right: 3px solid #e59b27;
+        }
+
+        /* Pastki HUD (HP, Armor, Money, Qurollar) */
+        #bottomHud {
+            position: fixed; bottom: 18px; left: 20px; right: 20px;
+            display: flex; justify-content: space-between; align-items: flex-end; z-index: 10; pointer-events: none;
+        }
+        .hud-box {
+            background: rgba(12, 16, 23, 0.85); border: 1px solid rgba(255,255,255,0.15);
+            padding: 12px 20px; border-radius: 8px; display: flex; gap: 22px; align-items: center;
+        }
+        .stat-label { font-size: 11px; color: #aaa; text-transform: uppercase; }
+        .stat-val { font-size: 26px; font-weight: 900; }
+        #hpVal { color: #4cd137; }
+        #armorVal { color: #00a8ff; }
+        #moneyVal { color: #fbc531; }
+        #weaponHud { text-align: right; }
+        .slot-hint { font-size: 12px; color: #bbb; margin-top: 4px; }
+
+        /* Modal Oynalar (Buy Menu, Scoreboard, Settings, Admin Panel) */
+        .modal {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(16, 20, 28, 0.96); border: 2px solid #3c465c; border-radius: 10px;
+            padding: 22px; z-index: 50; min-width: 580px; max-height: 85vh; overflow-y: auto;
+        }
+        .modal h2 { color: #e59b27; margin-bottom: 14px; border-bottom: 1px solid #333; padding-bottom: 8px; }
+        .buy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .buy-card {
+            background: #1b2230; border: 1px solid #384359; border-radius: 6px; padding: 14px;
+            cursor: pointer; transition: 0.15s; text-align: center;
+        }
+        .buy-card:hover { border-color: #e59b27; background: #242d40; }
+        .buy-price { color: #4cd137; font-weight: 700; margin-top: 6px; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #2b3242; }
+        th { color: #e59b27; }
+
+        .admin-row { display: flex; gap: 8px; margin: 10px 0; align-items: center; }
+        .admin-btn {
+            padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer;
+            font-weight: 700; font-size: 12px; background: #e59b27; color: #111;
+        }
+        .admin-btn.danger { background: #e84118; color: #fff; }
+        .admin-btn.sec { background: #0097e6; color: #fff; }
+
+        #controlsHint {
+            position: fixed; top: 15px; left: 15px; background: rgba(12,16,23,0.8);
+            padding: 10px 14px; border-radius: 6px; font-size: 12px; line-height: 1.6; z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. Kirish / Ro'yxatdan o'tish Oynasi -->
+    <div id="loginOverlay">
+        <div class="card">
+            <h1>CS2 WEB ARENA</h1>
+            <p style="font-size:12px; color:#aaa; text-align:center; margin-bottom:10px;">
+                Admin sinovi uchun: Login: <b>admin</b> | Parol: <b>admin123</b>
+            </p>
+            <input type="text" id="usernameInput" placeholder="O'yinchi niki (Username)" value="Player_1" />
+            <input type="password" id="passwordInput" placeholder="Parol" value="12345" />
+            <select id="teamSelect">
+                <option value="T">Terrorists (T - Oltin jamoa)</option>
+                <option value="CT">Counter-Terrorists (CT - Ko'k jamoa)</option>
+            </select>
+            <button class="btn" id="joinBtn">O'YINGA KIRISH</button>
+            <div id="loginError"></div>
+        </div>
+    </div>
+
+    <!-- 2. O'yin HUD qismi -->
+    <div id="crosshair"></div>
+    <div id="scopeOverlay"></div>
+    <div id="announcementBanner"></div>
+
+    <div id="controlsHint">
+        <b>WASD</b> - Yurish | <b>SPACE</b> - Sakrash | <b>Chap tugma</b> - Otish | <b>O'ng tugma</b> - AWP Zoom<br>
+        <b>1, 2, 3, 4</b> - Qurollar (Asosiy, Deagle, Pichoq, HE Granata)<br>
+        <b>[B]</b> - Qurol Do'koni | <b>[TAB]</b> - Scoreboard | <b>[M]</b> - Sozlamalar | <b>[F2]</b> - Admin Panel
+    </div>
+
+    <div id="topBar">
+        <span class="score-t">T: <span id="tScore">0</span></span>
+        <span id="roundTimer">10:00</span>
+        <span class="score-ct">CT: <span id="ctScore">0</span></span>
+    </div>
+
+    <div id="killFeed"></div>
+
+    <div id="bottomHud">
+        <div class="hud-box">
+            <div>
+                <div class="stat-label">JON (HP)</div>
+                <div class="stat-val" id="hpVal">100</div>
+            </div>
+            <div>
+                <div class="stat-label">ZIRH (ARMOR)</div>
+                <div class="stat-val" id="armorVal">0</div>
+            </div>
+            <div>
+                <div class="stat-label">PUL ($)</div>
+                <div class="stat-val" id="moneyVal">$1600</div>
+            </div>
+            <div id="adminBadge" style="display:none; color:#ff4757; font-weight:800; font-size:13px;"></div>
+        </div>
+
+        <div class="hud-box" id="weaponHud">
+            <div>
+                <div class="stat-label">FAOL QUROL</div>
+                <div class="stat-val" id="activeWeaponName" style="color:#e59b27;">Desert Eagle</div>
+                <div class="slot-hint" id="inventoryHint">[1] Yo'q | [2] Deagle | [3] Pichoq | [4] HE: 1</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. BUY MENU (B tugmasi) -->
+    <div class="modal" id="buyMenuModal">
+        <h2>CS2 QUROL DO'KONI (BUY MENU - [B])</h2>
+        <div class="buy-grid">
+            <div class="buy-card" onclick="buyWeapon('ak47')">
+                <b>AK-47</b><br><small>Zarar: 36 (Avtomat)</small>
+                <div class="buy-price">$2700</div>
+            </div>
+            <div class="buy-card" onclick="buyWeapon('m4a4')">
+                <b>M4A4</b><br><small>Zarar: 33 (Tezotar)</small>
+                <div class="buy-price">$3100</div>
+            </div>
+            <div class="buy-card" onclick="buyWeapon('awp')">
+                <b>AWP Sniper</b><br><small>Zarar: 115 (1 o'q = o'lim)</small>
+                <div class="buy-price">$4750</div>
+            </div>
+            <div class="buy-card" onclick="buyWeapon('deagle')">
+                <b>Desert Eagle</b><br><small>Zarar: 53 (To'pponcha)</small>
+                <div class="buy-price">$700</div>
+            </div>
+            <div class="buy-card" onclick="buyWeapon('he')">
+                <b>HE Grenade</b><br><small>Portlovchi granata</small>
+                <div class="buy-price">$300</div>
+            </div>
+            <div class="buy-card" onclick="buyWeapon('kevlar')">
+                <b>Kevlar + Helmet</b><br><small>+100 Zirh</small>
+                <div class="buy-price">$1000</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. SCOREBOARD (TAB tugmasi) -->
+    <div class="modal" id="scoreboardModal">
+        <h2>SCOREBOARD — TEAM DEATHMATCH</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>O'yinchi</th>
+                    <th>Jamoa</th>
+                    <th>Kills</th>
+                    <th>Deaths</th>
+                    <th>Ping</th>
+                </tr>
+            </thead>
+            <tbody id="scoreboardBody"></tbody>
+        </table>
+    </div>
+
+    <!-- 5. SOZLAMALAR (M tugmasi) -->
+    <div class="modal" id="settingsModal">
+        <h2>O'YIN SOZLAMALARI ([M])</h2>
+        <div class="admin-row">
+            <label style="width:220px;">Sichqoncha sezgirligi (Sensitivity):</label>
+            <input type="range" id="sensSlider" min="0.0005" max="0.005" step="0.0002" value="0.0022" />
+        </div>
+        <div class="admin-row">
+            <label style="width:220px;">Ovoz balandligi (Volume):</label>
+            <input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.5" />
+        </div>
+    </div>
+
+    <!-- 6. ADMIN (EGA) PANELI (F2 tugmasi) -->
+    <div class="modal" id="adminModal">
+        <h2>SERVER ADMIN (EGA) PANELI ([F2])</h2>
+        <div class="admin-row">
+            <input type="password" id="adminSecretInput" placeholder="Admin paroli (agar player bo'lsangiz: owner2026)" style="padding:6px; background:#111; color:#fff; border:1px solid #444; flex:1;" />
+        </div>
+
+        <div class="admin-row">
+            <button class="admin-btn sec" onclick="sendAdminAction('toggleNoclip')">NOCLIP (Uchish)</button>
+            <button class="admin-btn sec" onclick="sendAdminAction('toggleGodmode')">GODMODE (O'lmaslik)</button>
+            <button class="admin-btn danger" onclick="sendAdminAction('restartMatch')">RESTART MATCH</button>
+        </div>
+
+        <div class="admin-row">
+            <select id="adminMapSelect" style="padding:6px; background:#111; color:#fff; border:1px solid #444;">
+                <option value="de_dust2">de_dust2 (Qumli Arena)</option>
+                <option value="fy_iceworld">fy_iceworld (Muzli Arena)</option>
+            </select>
+            <button class="admin-btn" onclick="sendAdminAction('changeMap', null, document.getElementById('adminMapSelect').value)">Xaritani O'zgartirish</button>
+            <input type="number" id="adminTimeInput" value="600" style="width:80px; padding:6px; background:#111; color:#fff; border:1px solid #444;" />
+            <button class="admin-btn" onclick="sendAdminAction('setRoundTime', null, document.getElementById('adminTimeInput').value)">Vaqt (sek)</button>
+        </div>
+
+        <div class="admin-row">
+            <input type="text" id="adminAnnounceInput" placeholder="Global e'lon matni..." style="padding:6px; background:#111; color:#fff; border:1px solid #444; flex:1;" />
+            <button class="admin-btn" onclick="sendAdminAction('announce', null, document.getElementById('adminAnnounceInput').value)">E'lon Yuborish</button>
+        </div>
+
+        <h3 style="margin-top:14px; font-size:15px; color:#ccc;">O'yinchilarni Boshqarish (Kick / Ban / Mute)</h3>
+        <table>
+            <thead>
+                <tr><th>Nik</th><th>Jamoa</th><th>Amallar</th></tr>
+            </thead>
+            <tbody id="adminPlayersList"></tbody>
+        </table>
+    </div>
+
+    <!-- Three.js va Socket.io kutubxonalari -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
