@@ -1,0 +1,14 @@
+{
+  "name": "cs2-web-tdm",
+  "version": "1.0.0",
+  "description": "3D Multiplayer CS2 Style Team Deathmatch in Browser",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "sqlite3": "^5.1.7"
+  }
+}
